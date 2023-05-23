@@ -3,56 +3,99 @@
 
 describe('tarefas', () => {
 
-    it.only('deve cadastrar uma nova tarefa', () => {
+    let testData;
 
-        cy.request({
-            url: 'http://localhost:3333/helper/tasks',
-            method: 'DELETE',
-            body: { name: 'ler um livro de node.js' }
-        }).then(response => {
-            expect(response.status).to.eq(204)
+    before(()=>{
+        cy.fixture('tasks').then(t => {
+            testData = t
         })
-
-        cy.visit('http://localhost:8080')
-
-        cy.get('input[placeholder="Add a new Task"]')
-            .type('ler um livro de node.js')
-
-        cy.contains('button', 'Create').click()
-
-        cy.contains('main div p', 'ler um livro de node.js')
-            .should('be.visible')
     })
 
-    it('não deve permitir tarefas duplicadas', () =>{
+    context ('cadastro',()=>{
+        it('deve cadastrar uma nova tarefa', () => {
 
-        cy.request({
-            url: 'http://localhost:3333/helper/tasks',
-            method: 'DELETE',
-            body: { name: 'Estudar js' }
-        }).then(response => {
-            expect(response.status).to.eq(204)
+            const taskName = 'ler um livro de node.js'
+    
+            cy.createTask(taskName)
+    
+            cy.removeTaskByName(taskName)
+    
+            cy.contains('main div p', taskName)
+                .should('be.visible')
         })
-
-        cy.request({
-            url: 'http://localhost:3333/tasks',
-            method: 'POST',
-            body: {name: "Estudar js", is_done:false}
-        }).then(response => {
-            expect(response.status).to.eq(201)
+    
+        it('não deve permitir tarefas duplicadas', () =>{
+    
+            const task = testData.dup
+    
+            cy.removeTaskByName(task.name)
+    
+            cy.postTask(task)
+    
+            cy.createTask(task.name)
+    
+            cy.get('.swal2-html-container')
+                .should('be.visible')
+                .should('have.text','Task already exists!')
+    
         })
+    
+        it('campo obrigatorio', () => {
+            cy.createTask()
+            cy.isRequired('This is a required field')
+        })
+    })
 
-        cy.visit('http://localhost:8080')
+    context ('atualização', ()=>{
 
-        cy.get('input[placeholder="Add a new Task"]')
-            .type('Estudar js')
+        it('deve concluir uma tarefa',()=>{
+            const task= {
+                name: 'pagar contas de consumo', 
+                is_done: false
+            }
 
-        cy.contains('button', 'Create').click()
+            cy.removeTaskByName(task.name)
+            cy.postTask(task)
 
-        cy.get('.swal2-html-container')
-            .should('be.visible')
-            .should('have.text','Task already exists!')
+            cy.visit('/')
+
+            cy.contains('p', task.name)
+                .parent()
+                .find('button[class*=ItemToggle]')
+                .click()
+
+            cy.contains('p', task.name)
+                .should('have.css', 'text-decoration-line', 'line-through')
+            
+
+        })
 
     })
 
+    context ('exclusão', ()=>{
+
+        it('deve remover uma tarefa',()=>{
+            const task= {
+                name: 'Estudar js', 
+                is_done: false
+            }
+
+            cy.removeTaskByName(task.name)
+            cy.postTask(task)
+
+            cy.visit('/')
+
+            cy.contains('p', task.name)
+                .parent()
+                .find('button[class*=ItemDelete]')
+                .click()
+
+            cy.contains('p', task.name)
+                .should('not.exist')
+            
+
+        })
+
+    })
 })
+
